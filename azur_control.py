@@ -30,7 +30,7 @@ import time
 
 DEFAULT_HOST = "192.168.10.149"
 DEFAULT_PORT = 4001  # must match the adapter's "Local Port Number" in TCP Server mode (see parameters.md)
-DEFAULT_RETRIES = 3
+DEFAULT_RETRIES = 8
 RETRY_DELAY = 0.3
 
 ERROR_GROUP = 11
