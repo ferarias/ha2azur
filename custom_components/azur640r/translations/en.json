@@ -1,0 +1,54 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "data": {
+          "host": "AUX-2 host or IP address",
+          "port_name": "ESPHome serial port name",
+          "key": "ESPHome API encryption key (leave blank if unencrypted)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the receiver via the AUX-2",
+      "invalid_auth": "Invalid ESPHome API encryption key",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This AUX-2 host is already configured"
+    }
+  },
+  "entity": {
+    "media_player": {
+      "receiver": {
+        "state_attributes": {
+          "source": {
+            "state": {
+              "tuner": "Tuner",
+              "dvd": "DVD",
+              "video1": "Video 1",
+              "video2": "Video 2",
+              "video3": "Video 3",
+              "rec1": "Rec 1",
+              "aux": "Aux",
+              "cd": "CD",
+              "rec2": "Rec 2",
+              "direct_7_1": "7.1 Direct In"
+            }
+          }
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "cannot_connect": {
+      "message": "Error connecting to the Azur 640R at {host}"
+    },
+    "invalid_auth": {
+      "message": "Invalid ESPHome API encryption key for the Azur 640R at {host}"
+    },
+    "invalid_source": {
+      "message": "{source} is not a valid input source"
+    }
+  }
+}
