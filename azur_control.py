@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Send Azur 640R serial-control commands over the USR-TCP232-302 Ethernet bridge.
+"""Send Azur 640R serial-control commands via a Home Assistant Connect AUX-2.
 
-The USR-TCP232-302 is configured as a transparent TCP Server, so this script
-just opens a plain TCP socket to it; every byte sent/received passes straight
-through to the receiver's RS-232 port (9600 baud, 8N1, no handshaking).
+The AUX-2 exposes the receiver's RS-232 port as a serial passthrough over
+ESPHome's native API (port 6053). This script opens that passthrough with
+serialx and talks the same framing as a local serial port: 9600 baud, 8N1,
+no handshaking.
 
 Command format (Azur 640R Serial Control Protocol V1.13):
     #<group>,<number>[,<data>]<CR>
@@ -15,21 +16,18 @@ occasional single-bit corruption, so replies are validated against this
 shape and the command is retried on a malformed or unexpected reply.
 
 Examples:
-    python azur_control.py 1,01,1        # power on
-    python azur_control.py 1,02          # volume up
-    python azur_control.py 2,01,07       # select CD input
-    python azur_control.py -i            # interactive mode
-
-See parameters.md for this adapter's actual configuration (local port, etc).
+    python azur_control.py 1,01,1 --host aux2.local        # power on
+    python azur_control.py 1,02 --host aux2.local          # volume up
+    python azur_control.py -i --host aux2.local            # interactive mode
 """
 import argparse
+import asyncio
+import getpass
 import re
-import socket
-import sys
-import time
 
-DEFAULT_HOST = "192.168.10.149"
-DEFAULT_PORT = 4001  # must match the adapter's "Local Port Number" in TCP Server mode (see parameters.md)
+import serialx
+
+DEFAULT_PORT_NAME = "RS-232 Port 1"
 DEFAULT_RETRIES = 8
 RETRY_DELAY = 0.3
 
@@ -42,14 +40,8 @@ class ReplyError(Exception):
     """Raised when a reply is malformed or doesn't match the sent command."""
 
 
-def _read_reply(sock: socket.socket) -> str:
-    """Read bytes until a CR terminator (or the socket times out)."""
-    buf = bytearray()
-    while b"\r" not in buf:
-        chunk = sock.recv(256)
-        if not chunk:
-            break
-        buf.extend(chunk)
+async def _read_reply(reader: asyncio.StreamReader, timeout: float) -> str:
+    buf = await asyncio.wait_for(reader.readuntil(b"\r"), timeout)
     return buf.decode("ascii", errors="replace").strip()
 
 
@@ -68,7 +60,13 @@ def _validate_reply(command: str, reply: str) -> None:
         raise ReplyError(f"expected reply group {expected_group}, got {reply_group}: {reply!r}")
 
 
-def send_command(sock: socket.socket, command: str, retries: int = DEFAULT_RETRIES) -> str:
+async def send_command(
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+    command: str,
+    timeout: float,
+    retries: int = DEFAULT_RETRIES,
+) -> str:
     """Send one command (without the leading '#' or trailing CR), validate, and return the reply.
 
     Retries on a timeout, malformed reply, or reply that doesn't match the command sent.
@@ -78,55 +76,82 @@ def send_command(sock: socket.socket, command: str, retries: int = DEFAULT_RETRI
     last_error: Exception | None = None
 
     for attempt in range(1, retries + 1):
-        sock.sendall(payload)
+        writer.write(payload)
+        await writer.drain()
         try:
-            reply = _read_reply(sock)
+            reply = await _read_reply(reader, timeout)
             if not reply:
                 raise ReplyError("empty reply")
             _validate_reply(command, reply)
             return reply
-        except (socket.timeout, ReplyError) as exc:
+        except (asyncio.TimeoutError, ReplyError) as exc:
             last_error = exc
             if attempt < retries:
-                time.sleep(RETRY_DELAY)
+                await asyncio.sleep(RETRY_DELAY)
 
     raise last_error if last_error is not None else ReplyError("no reply")
 
 
-def main() -> int:
+async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", nargs="?", help="command as group,number[,data] e.g. 1,02")
-    parser.add_argument("--host", default=DEFAULT_HOST, help=f"adapter IP (default {DEFAULT_HOST})")
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"adapter TCP port (default {DEFAULT_PORT})")
+    parser.add_argument("--host", help="AUX-2 hostname or IP (prompted if omitted)")
+    parser.add_argument("--port-name", default=DEFAULT_PORT_NAME, help=f"ESPHome serial port name (default {DEFAULT_PORT_NAME!r})")
+    parser.add_argument("--key", help="ESPHome API encryption key (prompted if omitted and not --no-key)")
+    parser.add_argument("--no-key", action="store_true", help="skip the encryption key prompt (unencrypted API)")
     parser.add_argument("-i", "--interactive", action="store_true", help="read commands from stdin until EOF/quit")
-    parser.add_argument("--timeout", type=float, default=3.0, help="socket timeout in seconds (default 3)")
+    parser.add_argument("--timeout", type=float, default=3.0, help="reply timeout in seconds (default 3)")
     parser.add_argument("--retries", type=int, default=DEFAULT_RETRIES, help=f"attempts per command (default {DEFAULT_RETRIES})")
     args = parser.parse_args()
 
     if not args.command and not args.interactive:
         parser.error("provide a command or use -i for interactive mode")
 
-    with socket.create_connection((args.host, args.port), timeout=args.timeout) as sock:
-        sock.settimeout(args.timeout)
+    host = args.host or input("IP o nombre del AUX-2: ").strip()
+    key = args.key
+    if key is None and not args.no_key:
+        key = getpass.getpass("Clave de cifrado ESPHome (Enter si no utiliza cifrado): ").strip()
+
+    options = {}
+    if key:
+        options["key"] = key
+
+    url = f"esphome://{host}:6053/?port_name={args.port_name.replace(' ', '+')}"
+
+    reader, writer = await serialx.open_serial_connection(
+        url=url,
+        baudrate=9600,
+        bytesize=8,
+        parity="N",
+        stopbits=1,
+        **options,
+    )
+
+    try:
         if args.interactive:
-            print(f"Connected to {args.host}:{args.port}. Enter commands like '1,02' (empty line or 'quit' to exit).")
-            for line in sys.stdin:
+            print(f"Connected to {host} ({args.port_name}). Enter commands like '1,02' (empty line or 'quit' to exit).")
+            loop = asyncio.get_event_loop()
+            while True:
+                line = await loop.run_in_executor(None, input, "> ")
                 command = line.strip()
                 if not command or command.lower() == "quit":
                     break
                 try:
-                    print(send_command(sock, command, retries=args.retries))
-                except (socket.timeout, ReplyError) as exc:
+                    print(await send_command(reader, writer, command, args.timeout, retries=args.retries))
+                except (asyncio.TimeoutError, ReplyError) as exc:
                     print(f"(failed after {args.retries} attempt(s): {exc})")
         else:
             try:
-                print(send_command(sock, args.command, retries=args.retries))
-            except (socket.timeout, ReplyError) as exc:
+                print(await send_command(reader, writer, args.command, args.timeout, retries=args.retries))
+            except (asyncio.TimeoutError, ReplyError) as exc:
                 print(f"(failed after {args.retries} attempt(s): {exc})")
                 return 1
+    finally:
+        writer.close()
+        await writer.wait_closed()
 
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(asyncio.run(main()))
