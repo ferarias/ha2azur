@@ -8,10 +8,19 @@ higher-level methods are worth calling directly instead -- in particular
 `set_bass`/`set_treble`, whose step-walking-to-a-target loop isn't
 expressible as a single raw command.
 
+CAUTION: a raw command defaults to idempotent=True, which retries blindly
+on a rejected/malformed reply. For a relative step/cycle command (bass,
+treble, volume, input/tuner up-down, mode cycling, OSD navigation) each
+retry is a REAL extra press on the hardware, not a harmless re-send --
+confirmed the hard way in this project when an unanticipated reply format
+caused several real extra bass/treble steps. Pass --non-idempotent for
+any such command.
+
 Examples:
     python scripts/smoke_client.py 1,01,1 --host 192.168.10.102 --key-file .secret
     python scripts/smoke_client.py -i --host 192.168.10.102 --key-file .secret
     python scripts/smoke_client.py --method set_bass --arg -4 --host 192.168.10.102 --key-file .secret
+    python scripts/smoke_client.py 1,04 --non-idempotent --host 192.168.10.102 --key-file .secret
 """
 
 from __future__ import annotations
@@ -41,6 +50,7 @@ async def main() -> int:
     parser.add_argument("--key-file", help="read the encryption key from this file instead of --key")
     parser.add_argument("-i", "--interactive", action="store_true", help="read commands from stdin until EOF/quit")
     parser.add_argument("--timeout", type=float, default=3.0, help="reply timeout in seconds (default 3)")
+    parser.add_argument("--non-idempotent", action="store_true", help="for raw commands: don't retry a rejected/malformed reply (use for any relative step/cycle command -- see caution above)")
     args = parser.parse_args()
 
     if not args.command and not args.interactive and not args.method:
@@ -63,7 +73,7 @@ async def main() -> int:
                 if not command or command.lower() == "quit":
                     break
                 try:
-                    print(await client.async_send_command(command, timeout=args.timeout))
+                    print(await client.async_send_command(command, idempotent=not args.non_idempotent, timeout=args.timeout))
                 except AzurError as exc:
                     print(f"(failed: {exc})")
         elif args.method:
@@ -77,7 +87,7 @@ async def main() -> int:
                 return 1
         else:
             try:
-                print(await client.async_send_command(args.command, timeout=args.timeout))
+                print(await client.async_send_command(args.command, idempotent=not args.non_idempotent, timeout=args.timeout))
             except AzurError as exc:
                 print(f"(failed: {exc})")
                 return 1

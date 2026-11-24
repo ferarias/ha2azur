@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable, Iterable
 
 from homeassistant.components.remote import RemoteEntity
@@ -67,7 +68,14 @@ class Azur640ROsdRemote(RemoteEntity):
         self.async_write_ha_state()
 
     async def async_send_command(self, command: Iterable[str], **kwargs) -> None:
-        for single_command in command:
+        """Honors the standard `num_repeats`/`delay_secs` service fields
+        (e.g. "press up 3 times, 0.4s apart") -- without this, "num_repeats:
+        3" would silently press each command only once."""
+        num_repeats = kwargs.get("num_repeats", 1)
+        delay_secs = kwargs.get("delay_secs", 0.4)
+        commands = list(command)
+        handlers = []
+        for single_command in commands:
             handler = self._COMMANDS.get(single_command)
             if handler is None:
                 raise HomeAssistantError(
@@ -75,4 +83,10 @@ class Azur640ROsdRemote(RemoteEntity):
                     translation_key="invalid_osd_command",
                     translation_placeholders={"command": single_command},
                 )
-            await handler(self._client)
+            handlers.append(handler)
+
+        for repeat in range(num_repeats):
+            for handler in handlers:
+                await handler(self._client)
+            if repeat < num_repeats - 1 and delay_secs:
+                await asyncio.sleep(delay_secs)
