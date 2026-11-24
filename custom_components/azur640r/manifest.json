@@ -1,12 +1,16 @@
 {
   "domain": "azur640r",
   "name": "Cambridge Audio Azur 640R",
-  "codeowners": ["@ferarias"],
+  "codeowners": [
+    "@ferarias"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/ferarias/ha2azur",
   "integration_type": "device",
   "iot_class": "assumed_state",
   "issue_tracker": "https://github.com/ferarias/ha2azur/issues",
-  "requirements": ["serialx[esphome]>=1.15.1"],
-  "version": "0.1.0"
+  "requirements": [
+    "serialx[esphome]>=1.15.1"
+  ],
+  "version": "0.1.1"
 }
