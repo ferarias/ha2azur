@@ -10,7 +10,15 @@ from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from .client import AzurAuthError, AzurConnectionError, AzurClient, AzurState, DEFAULT_PORT_NAME
 from .const import CONF_KEY, CONF_PORT_NAME, DOMAIN, LOGGER, Azur640RConfigEntry
 
-PLATFORMS = [Platform.MEDIA_PLAYER]
+PLATFORMS = [
+    Platform.MEDIA_PLAYER,
+    Platform.NUMBER,
+    Platform.SELECT,
+    Platform.SWITCH,
+    Platform.BUTTON,
+    Platform.REMOTE,
+    Platform.SENSOR,
+]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: Azur640RConfigEntry) -> bool:
@@ -44,6 +52,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: Azur640RConfigEntry) -> 
         await client.get_software_version()
     except Exception:  # noqa: BLE001
         LOGGER.debug("Could not fetch Azur 640R software version at setup", exc_info=True)
+
+    try:
+        await client.get_protocol_version()
+    except Exception:  # noqa: BLE001
+        LOGGER.debug("Could not fetch Azur 640R protocol version at setup", exc_info=True)
 
     entry.runtime_data = client
 

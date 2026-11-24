@@ -1,0 +1,13 @@
+store_preset:
+  target:
+    entity:
+      domain: select
+      integration: azur640r
+  fields:
+    preset:
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 15
+          mode: box
