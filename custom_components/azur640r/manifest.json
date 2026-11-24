@@ -5,7 +5,9 @@
     "@ferarias"
   ],
   "config_flow": true,
-  "connectivity": ["serial"],
+  "connectivity": [
+    "serial"
+  ],
   "documentation": "https://github.com/ferarias/ha2azur",
   "integration_type": "device",
   "iot_class": "assumed_state",
@@ -13,5 +15,5 @@
   "requirements": [
     "serialx[esphome]>=1.15.1"
   ],
-  "version": "0.2.0"
+  "version": "0.3.0"
 }

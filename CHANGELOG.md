@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/ferarias/ha2azur/compare/v0.2.0...v0.3.0) (2026-11-24)
+
+
+### Features
+
+* declare serial connectivity so the integration appears in ESPHome's "control a device via serial" wizard ([#4](https://github.com/ferarias/ha2azur/issues/4)) ([9a82e9d](https://github.com/ferarias/ha2azur/commit/9a82e9d7c6154c28eb7712bb6794e3ff9201e19d))
+
 ## [0.2.0](https://github.com/ferarias/ha2azur/compare/v0.1.1...v0.2.0) (2026-11-24)
 
 
