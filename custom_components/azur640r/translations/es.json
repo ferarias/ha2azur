@@ -1,0 +1,54 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "data": {
+          "host": "Host o dirección IP de su Connect AUX-2",
+          "port_name": "Nombre del puerto serie de ESPHome",
+          "key": "Clave de cifrado de la API de ESPHome (déjalo en blanco si no está cifrado)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "No se pudo conectar con el receptor AV a través del Connect AUX-2",
+      "invalid_auth": "Clave de cifrado de la API de ESPHome no válida",
+      "unknown": "Error inesperado"
+    },
+    "abort": {
+      "already_configured": "Este host Connect AUX-2 ya está configurado"
+    }
+  },
+  "entity": {
+    "media_player": {
+      "receiver": {
+        "state_attributes": {
+          "source": {
+            "state": {
+              "tuner": "Sintonizador de radio",
+              "dvd": "DVD",
+              "video1": "Vídeo 1",
+              "video2": "Vídeo 2",
+              "video3": "Vídeo 3",
+              "rec1": "Rec 1",
+              "aux": "Aux",
+              "cd": "CD",
+              "rec2": "Rec 2",
+              "direct_7_1": "Entrada directa 7.1"
+            }
+          }
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "cannot_connect": {
+      "message": "Error al conectar con el Azur 640R a través del Connect AUX-2 en {host}"
+    },
+    "invalid_auth": {
+      "message": "Clave de cifrado de la API de ESPHome no válida para el Connect AUX-2 en {host}"
+    },
+    "invalid_source": {
+      "message": "{source} no es una fuente de entrada válida"
+    }
+  }
+}

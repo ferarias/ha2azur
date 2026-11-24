@@ -3,19 +3,19 @@
     "step": {
       "user": {
         "data": {
-          "host": "AUX-2 host or IP address",
+          "host": "Connect AUX-2 host or IP address",
           "port_name": "ESPHome serial port name",
           "key": "ESPHome API encryption key (leave blank if unencrypted)"
         }
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect to the receiver via the AUX-2",
+      "cannot_connect": "Failed to connect to the receiver via the Connect AUX-2",
       "invalid_auth": "Invalid ESPHome API encryption key",
       "unknown": "Unexpected error"
     },
     "abort": {
-      "already_configured": "This AUX-2 host is already configured"
+      "already_configured": "This Connect AUX-2 host is already configured"
     }
   },
   "entity": {
@@ -42,10 +42,10 @@
   },
   "exceptions": {
     "cannot_connect": {
-      "message": "Error connecting to the Azur 640R at {host}"
+      "message": "Error connecting to the Azur 640R via the Connect AUX-2 at {host}"
     },
     "invalid_auth": {
-      "message": "Invalid ESPHome API encryption key for the Azur 640R at {host}"
+      "message": "Invalid ESPHome API encryption key for the Connect AUX-2 at {host}"
     },
     "invalid_source": {
       "message": "{source} is not a valid input source"
