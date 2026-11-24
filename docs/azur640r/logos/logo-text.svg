@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="320mm"
+   height="59.307949mm"
+   viewBox="0 0 297.59427 59.307949"
+   version="1.1"
+   id="svg1"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs id="defs1">
+    <clipPath id="blue-with-hole">
+      <path
+         d="M 62.08293,34.243362
+            A 29.653975,29.653975 0 0 1 32.428955,63.897337
+            A 29.653975,29.653975 0 0 1 2.77498,34.243362
+            A 29.653975,29.653975 0 0 1 32.428955,4.589387
+            A 29.653975,29.653975 0 0 1 62.08293,34.243362 Z
+            M 42.805216,48.775749
+            A 10.692286,10.692286 0 0 1 32.11293,59.468035
+            A 10.692286,10.692286 0 0 1 21.420644,48.775749
+            A 10.692286,10.692286 0 0 1 32.11293,38.083463
+            A 10.692286,10.692286 0 0 1 42.805216,48.775749 Z"
+         clip-rule="evenodd" />
+    </clipPath>
+  </defs>
+   <g id="layer1" transform="translate(-2.7749803,-4.5893878)">
+      <text
+         xml:space="preserve"
+         style="font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:33.8667px;font-family:'Segoe UI';-inkscape-font-specification:'Segoe UI Italic';letter-spacing:-1.40494px;writing-mode:lr-tb;direction:ltr;fill:#000331;fill-opacity:1;stroke-width:0.264583"
+         x="67.172707"
+         y="46.139725"
+         id="text4"><tspan
+         id="tspan4"
+         x="67.172707"
+         y="46.139725"
+         style="font-size:33.8667px;letter-spacing:-1.40494px;stroke-width:0.264583">Cambridge Audio</tspan></text>
+  
+    <circle
+       id="path2"
+       cx="32.428955"
+       cy="34.243362"
+       r="29.653975"
+       fill="#000331"
+       clip-path="url(#blue-with-hole)" />
+   </g>
+</svg>
