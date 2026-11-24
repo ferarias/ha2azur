@@ -3,9 +3,15 @@
 Azur 640R, without any Home Assistant involved. Cheapest possible feedback
 loop for changes to the protocol/transport client.
 
+Most commands can be exercised as raw "group,number[,data]" strings. A few
+higher-level methods are worth calling directly instead -- in particular
+`set_bass`/`set_treble`, whose step-walking-to-a-target loop isn't
+expressible as a single raw command.
+
 Examples:
     python scripts/smoke_client.py 1,01,1 --host 192.168.10.102 --key-file .secret
     python scripts/smoke_client.py -i --host 192.168.10.102 --key-file .secret
+    python scripts/smoke_client.py --method set_bass --arg -4 --host 192.168.10.102 --key-file .secret
 """
 
 from __future__ import annotations
@@ -27,6 +33,8 @@ from client import (  # noqa: E402
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", nargs="?", help="raw command as group,number[,data] e.g. 1,02")
+    parser.add_argument("--method", help="call a named AzurClient method directly instead of a raw command (e.g. set_bass, set_treble)")
+    parser.add_argument("--arg", help="single integer argument to pass to --method")
     parser.add_argument("--host", required=True, help="AUX-2 hostname or IP")
     parser.add_argument("--port-name", default=DEFAULT_PORT_NAME, help=f"ESPHome serial port name (default {DEFAULT_PORT_NAME!r})")
     parser.add_argument("--key", help="ESPHome API encryption key")
@@ -35,8 +43,8 @@ async def main() -> int:
     parser.add_argument("--timeout", type=float, default=3.0, help="reply timeout in seconds (default 3)")
     args = parser.parse_args()
 
-    if not args.command and not args.interactive:
-        parser.error("provide a command or use -i for interactive mode")
+    if not args.command and not args.interactive and not args.method:
+        parser.error("provide a command, --method, or use -i for interactive mode")
 
     key = args.key
     if key is None and args.key_file:
@@ -58,6 +66,15 @@ async def main() -> int:
                     print(await client.async_send_command(command, timeout=args.timeout))
                 except AzurError as exc:
                     print(f"(failed: {exc})")
+        elif args.method:
+            method = getattr(client, args.method)
+            call_args = [int(args.arg)] if args.arg is not None else []
+            try:
+                result = await method(*call_args)
+                print(result if result is not None else client.state)
+            except AzurError as exc:
+                print(f"(failed: {exc})")
+                return 1
         else:
             try:
                 print(await client.async_send_command(args.command, timeout=args.timeout))

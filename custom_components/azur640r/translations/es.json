@@ -38,6 +38,142 @@
           }
         }
       }
+    },
+    "number": {
+      "bass": { "name": "Graves" },
+      "treble": { "name": "Agudos" },
+      "lfe_trim": { "name": "Ajuste LFE" }
+    },
+    "select": {
+      "dynamic_range": {
+        "name": "Rango dinámico",
+        "state": {
+          "off": "Desactivado",
+          "quarter": "1/4",
+          "half": "2/4",
+          "three_quarters": "3/4",
+          "full": "Completo"
+        }
+      },
+      "input_mode": {
+        "name": "Modo de entrada",
+        "state": {
+          "analogue": "Analógica",
+          "digital": "Digital"
+        }
+      },
+      "video_source_type": {
+        "name": "Tipo de fuente de vídeo",
+        "state": {
+          "s_video": "S-Video",
+          "component": "Componentes",
+          "composite": "Compuesto"
+        }
+      },
+      "tuner_band": {
+        "name": "Banda del sintonizador",
+        "state": {
+          "fm": "FM",
+          "am": "AM"
+        }
+      },
+      "tuner_mode": {
+        "name": "Modo del sintonizador",
+        "state": {
+          "frequency": "Frecuencia",
+          "search": "Búsqueda",
+          "preset": "Preajuste"
+        }
+      },
+      "tuner_display_mode": {
+        "name": "Modo de pantalla del sintonizador",
+        "state": {
+          "frequency": "Frecuencia",
+          "program_name": "Nombre de la emisora",
+          "program_type": "Tipo de programa",
+          "clock_time": "Hora",
+          "radiotext": "Radiotexto"
+        }
+      },
+      "tuner_pty_select": {
+        "name": "Búsqueda de tipo de programa (PTY)",
+        "state": {
+          "news": "Noticias",
+          "affairs": "Actualidad",
+          "info": "Información",
+          "sport": "Deportes",
+          "educate": "Educación",
+          "drama": "Teatro",
+          "culture": "Cultura",
+          "science": "Ciencia",
+          "varied": "Variado",
+          "pop": "Pop",
+          "rock": "Rock",
+          "mor": "Música ligera",
+          "light": "Música clásica ligera",
+          "classics": "Música clásica",
+          "other": "Otro"
+        }
+      },
+      "tuner_preset": { "name": "Preajuste del sintonizador" }
+    },
+    "switch": {
+      "subwoofer": { "name": "Subwoofer" },
+      "stereo_plus_sw": { "name": "Estéreo + subwoofer" },
+      "tuner_mono": { "name": "Sintonizador en mono" }
+    },
+    "button": {
+      "cycle_surround_mode": { "name": "Cambiar modo envolvente" },
+      "cycle_dd_dts_mode": { "name": "Cambiar modo DD/DTS" },
+      "input_select_up": { "name": "Entrada siguiente" },
+      "input_select_down": { "name": "Entrada anterior" },
+      "tuner_frequency_up": { "name": "Subir frecuencia" },
+      "tuner_frequency_down": { "name": "Bajar frecuencia" },
+      "tuner_up": { "name": "Sintonizador arriba" },
+      "tuner_down": { "name": "Sintonizador abajo" },
+      "tuner_search_stop": { "name": "Detener búsqueda" },
+      "tuner_auto_search": { "name": "Búsqueda automática" },
+      "tuner_stop_pty_select": { "name": "Detener búsqueda de PTY" }
+    },
+    "remote": {
+      "osd": { "name": "Menú en pantalla" }
+    },
+    "sensor": {
+      "tuner_frequency": { "name": "Frecuencia del sintonizador" },
+      "tuner_station_name": { "name": "Nombre de la emisora" },
+      "tuner_pty_current": {
+        "name": "Tipo de programa actual (PTY)",
+        "state": {
+          "news": "Noticias",
+          "affairs": "Actualidad",
+          "info": "Información",
+          "sport": "Deportes",
+          "educate": "Educación",
+          "drama": "Teatro",
+          "culture": "Cultura",
+          "science": "Ciencia",
+          "varied": "Variado",
+          "pop": "Pop",
+          "rock": "Rock",
+          "mor": "Música ligera",
+          "light": "Música clásica ligera",
+          "classics": "Música clásica",
+          "other": "Otro"
+        }
+      },
+      "protocol_version": { "name": "Versión del protocolo" }
+    }
+  },
+  "services": {
+    "store_preset": {
+      "name": "Guardar preajuste del sintonizador",
+      "description": "Guarda la frecuencia actual en una memoria de preajuste.",
+      "fields": {
+        "preset": {
+          "name": "Preajuste",
+          "description": "Número de la memoria de preajuste (1-15)."
+        }
+      }
     }
   },
   "exceptions": {
@@ -49,6 +185,9 @@
     },
     "invalid_source": {
       "message": "{source} no es una fuente de entrada válida"
+    },
+    "invalid_osd_command": {
+      "message": "{command} no es un comando de menú en pantalla válido"
     }
   }
 }

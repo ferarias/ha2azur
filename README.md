@@ -6,7 +6,7 @@ The receiver is reached via a Home Assistant Connect AUX-2, which exposes its RS
 
 ## Home Assistant integration
 
-`custom_components/azur640r/` is a HACS-style custom integration providing a `media_player` entity for the receiver.
+`custom_components/azur640r/` is a HACS-style custom integration covering the full RS-232 protocol: a `media_player` entity for the receiver, plus `number` (bass/treble/LFE trim), `select` (dynamic range, input mode, video source type, and tuner band/mode/display-mode/PTY-search/preset), `switch` (subwoofer, stereo+SW, tuner mono), `button` (mode cycling, input/tuner stepping, tuner search), `remote` (OSD navigation), and `sensor` (tuner frequency/station name/current PTY, protocol version) entities, all on one device.
 
 **Install**: copy (or symlink) `custom_components/azur640r/` into your Home Assistant config's `custom_components/` directory, restart HA, then add the integration from Settings → Devices & Services.
 
@@ -14,9 +14,10 @@ The receiver is reached via a Home Assistant Connect AUX-2, which exposes its RS
 
 **Known limitations**:
 - No reflection of changes made from the receiver's physical remote or front panel — the protocol is strictly command/reply, with no unsolicited state push.
-- No absolute volume set, only relative up/down — the protocol has no "set volume to X dB" command.
-- No tuner control (frequency/preset) or OSD menu navigation in this version.
+- No absolute volume/bass/treble set via the protocol itself, only relative up/down — the `number` entities for bass/treble emulate an absolute set by stepping to the target and reading back each step's reply; volume stays step-only.
+- `input_select_up`/`input_select_down` (buttons) and `tuner_up`/`tuner_down` leave `source`/tuner state stale, since their replies carry no data to update from.
 - `surround_mode`/`dd_dts_mode` attributes are refreshed in the background after power-on/source-select and can lag briefly.
+- Tuner sensors (frequency, station name, current PTY) only update after a relevant tuner action or query runs — there's no polling.
 
 A standalone smoke-test script, `scripts/smoke_client.py`, exercises the underlying protocol/transport client directly against the real receiver without needing Home Assistant — see its docstring for usage.
 

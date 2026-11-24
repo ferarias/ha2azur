@@ -52,6 +52,21 @@ FIXED_DATA_PATTERNS: dict[str, re.Pattern[str]] = {
     "1,11": re.compile(r"0?[01]"),        # mute: 0/00=off, 1/01=on
     "1,02": re.compile(r"-?\d{1,2}"),     # volume up -> resulting dB
     "1,03": re.compile(r"-?\d{1,2}"),     # volume down -> resulting dB
+    "1,04": re.compile(r"-?\d{1,2}"),     # bass up -> resulting dB
+    "1,05": re.compile(r"-?\d{1,2}"),     # bass down -> resulting dB
+    "1,06": re.compile(r"-?\d{1,2}"),     # treble up -> resulting dB
+    "1,07": re.compile(r"-?\d{1,2}"),     # treble down -> resulting dB
+    "1,10": re.compile(r"\d{1,2}"),       # LFE trim: 0..10 (magnitude of -dB)
+    "1,12": re.compile(r"0?[0-4]"),        # dynamic range: 0..4
+    "2,04": re.compile(r"0?[01]"),        # input mode: 0=analogue, 1=digital
+    "2,05": re.compile(r"0?[0-2]"),        # video source: 0=S-Video,1=Component,2=Composite
+    "3,01": re.compile(r"0?[01]"),        # tuner stereo/mono
+    "3,06": re.compile(r"0?[1-3]"),        # tuner mode
+    "3,09": re.compile(r"0?[01]"),        # tuner band: 0=FM, 1=AM
+    "3,10": re.compile(r"\d{1,2}"),       # tuner PTY select: 1..15
+    "3,13": re.compile(r"0?[1-5]"),       # tuner display mode: 1..5
+    "3,16": re.compile(r"\d{1,2}"),       # tuner current PTY: 0..15
+    "4,01": re.compile(r"0?[01]"),        # stereo (+SW)
 }
 
 
@@ -135,6 +150,119 @@ SOURCE_TO_COMMAND_CODE: dict[InputSource, str] = {
 }
 
 
+class VideoSourceType(Enum):
+    """Group 2, command 05 "Set Video Source"."""
+
+    S_VIDEO = "s_video"
+    COMPONENT = "component"
+    COMPOSITE = "composite"
+
+
+VIDEO_SOURCE_TYPE_CODE: dict[int, VideoSourceType] = {
+    0: VideoSourceType.S_VIDEO,
+    1: VideoSourceType.COMPONENT,
+    2: VideoSourceType.COMPOSITE,
+}
+VIDEO_SOURCE_TYPE_TO_CODE: dict[VideoSourceType, int] = {
+    v: k for k, v in VIDEO_SOURCE_TYPE_CODE.items()
+}
+
+
+class TunerBand(Enum):
+    """Group 3, command 09 "Tuner Band"."""
+
+    FM = "fm"
+    AM = "am"
+
+
+TUNER_BAND_CODE: dict[int, TunerBand] = {0: TunerBand.FM, 1: TunerBand.AM}
+TUNER_BAND_TO_CODE: dict[TunerBand, int] = {v: k for k, v in TUNER_BAND_CODE.items()}
+
+
+class TunerMode(Enum):
+    """Group 3, command 06 "Tuner Mode" -- what commands 04/05 ("Up"/"Down") do."""
+
+    FREQUENCY = "frequency"
+    SEARCH = "search"
+    PRESET = "preset"
+
+
+TUNER_MODE_CODE: dict[int, TunerMode] = {
+    1: TunerMode.FREQUENCY,
+    2: TunerMode.SEARCH,
+    3: TunerMode.PRESET,
+}
+TUNER_MODE_TO_CODE: dict[TunerMode, int] = {v: k for k, v in TUNER_MODE_CODE.items()}
+
+
+class TunerDisplayMode(Enum):
+    """Group 3, command 13 "Tuner Display mode"."""
+
+    FREQUENCY = "frequency"
+    PROGRAM_NAME = "program_name"
+    PROGRAM_TYPE = "program_type"
+    CLOCK_TIME = "clock_time"
+    RADIOTEXT = "radiotext"
+
+
+TUNER_DISPLAY_MODE_CODE: dict[int, TunerDisplayMode] = {
+    1: TunerDisplayMode.FREQUENCY,
+    2: TunerDisplayMode.PROGRAM_NAME,
+    3: TunerDisplayMode.PROGRAM_TYPE,
+    4: TunerDisplayMode.CLOCK_TIME,
+    5: TunerDisplayMode.RADIOTEXT,
+}
+TUNER_DISPLAY_MODE_TO_CODE: dict[TunerDisplayMode, int] = {
+    v: k for k, v in TUNER_DISPLAY_MODE_CODE.items()
+}
+
+
+class ProgramType(Enum):
+    """RDS Program Type (PTY), shared by the "select a PTY to search for"
+    (group 3, command 10; codes 1-15) and "get the currently playing
+    program's PTY" (group 8, command 16; codes 0-15, 0 = no PTY) commands."""
+
+    NEWS = "news"
+    AFFAIRS = "affairs"
+    INFO = "info"
+    SPORT = "sport"
+    EDUCATE = "educate"
+    DRAMA = "drama"
+    CULTURE = "culture"
+    SCIENCE = "science"
+    VARIED = "varied"
+    POP = "pop"
+    ROCK = "rock"
+    MOR = "mor"
+    LIGHT = "light"
+    CLASSICS = "classics"
+    OTHER = "other"
+
+
+# Codes 1-15 are shared by both the "select" and "current" commands; code 0
+# ("No PTY") only ever appears in a "current PTY" reply, never selectable.
+PROGRAM_TYPE_CODE: dict[int, ProgramType] = {
+    1: ProgramType.NEWS,
+    2: ProgramType.AFFAIRS,
+    3: ProgramType.INFO,
+    4: ProgramType.SPORT,
+    5: ProgramType.EDUCATE,
+    6: ProgramType.DRAMA,
+    7: ProgramType.CULTURE,
+    8: ProgramType.SCIENCE,
+    9: ProgramType.VARIED,
+    10: ProgramType.POP,
+    11: ProgramType.ROCK,
+    12: ProgramType.MOR,
+    13: ProgramType.LIGHT,
+    14: ProgramType.CLASSICS,
+    15: ProgramType.OTHER,
+}
+PROGRAM_TYPE_TO_CODE: dict[ProgramType, int] = {
+    v: k for k, v in PROGRAM_TYPE_CODE.items()
+}
+
+
 @dataclass
 class AzurState:
     """Last known receiver state. Every field starts unknown and is only
@@ -148,6 +276,31 @@ class AzurState:
     surround_mode: str | None = None
     dd_dts_mode: str | None = None
     sw_version: str | None = None
+    protocol_version: str | None = None
+
+    # Amplifier (group 1)
+    bass_db: int | None = None  # -10..10; only known after a step
+    treble_db: int | None = None  # -10..10; only known after a step
+    sub_on: bool | None = None  # assumed-state: reply carries no data
+    lfe_trim_db: int | None = None  # -10..0
+    dynamic_range: int | None = None  # 0..4 (quarters, 0=off, 4=full)
+
+    # Source (group 2)
+    input_mode_digital: bool | None = None
+    video_source_type: VideoSourceType | None = None
+
+    # Audio processing (group 4)
+    stereo_plus_sw: bool | None = None
+
+    # Tuner (group 3)
+    tuner_mono: bool | None = None
+    tuner_band: TunerBand | None = None
+    tuner_mode: TunerMode | None = None
+    tuner_pty_select: ProgramType | None = None
+    tuner_display_mode: TunerDisplayMode | None = None
+    tuner_frequency: str | None = None  # "xxx.xx" MHz/kHz, as echoed by the device
+    tuner_station_name: str | None = None
+    tuner_pty_current: ProgramType | None = None  # None also means "no PTY"
 
 
 def _clean_mode(data: str | None) -> str | None:
@@ -155,6 +308,25 @@ def _clean_mode(data: str | None) -> str | None:
     if not text or text.upper() == "MODE UNAVAILABLE":
         return None
     return text
+
+
+def _code_lookup(table: dict[int, Any], raw: str | None) -> Any | None:
+    """Look up a reply's numeric code in an int-keyed table. Handles the
+    protocol's inconsistent zero-padding (e.g. "2" and "02" both mean 2)."""
+    text = (raw or "").strip()
+    if not text.isdigit():
+        return None
+    return table.get(int(text))
+
+
+def _format_frequency(raw: str | None) -> str | None:
+    """The device echoes frequency as plain digits with an implied 2-digit
+    decimal part (e.g. "09525" -> "95.25" MHz) -- never a literal '.'."""
+    digits = (raw or "").strip()
+    if not digits.isdigit():
+        return digits or None
+    whole, frac = digits[:-2].lstrip("0") or "0", digits[-2:].rjust(2, "0")
+    return f"{whole}.{frac}"
 
 
 class AzurClient:
@@ -328,7 +500,12 @@ class AzurClient:
         data_pattern = FIXED_DATA_PATTERNS.get(f"{parts[0]},{command_number}")
         payload = f"#{command}\r".encode("ascii")
 
-        retries = IDEMPOTENT_RETRIES if idempotent else 1
+        # Non-idempotent commands still get a few attempts -- but only an
+        # explicit group-11 rejection carries on to a retry (the
+        # AzurDeviceError branch below never `break`s); an ambiguous
+        # timeout/malformed reply still aborts immediately via that branch's
+        # own `if not idempotent: break`.
+        retries = IDEMPOTENT_RETRIES if idempotent else 3
         last_error: Exception | None = None
 
         async with self._lock:
@@ -427,3 +604,238 @@ class AzurClient:
         self._state.dd_dts_mode = mode
         self._notify(self._state)
         return mode
+
+    async def get_protocol_version(self) -> str | None:
+        data = await self._send("5,02")
+        version = (data or "").strip() or None
+        self._state.protocol_version = version
+        self._notify(self._state)
+        return version
+
+    # -- Group 1: remaining Amplifier commands ------------------------------
+
+    async def bass_up(self) -> None:
+        data = await self._send("1,04", idempotent=False)
+        self._state.bass_db = int((data or "").strip())
+        self._notify(self._state)
+
+    async def bass_down(self) -> None:
+        data = await self._send("1,05", idempotent=False)
+        self._state.bass_db = int((data or "").strip())
+        self._notify(self._state)
+
+    async def set_bass(self, target_db: int) -> None:
+        """Emulate an absolute set: the protocol only has step up/down, but
+        each step reply echoes the resulting dB, so this walks toward the
+        target one step at a time and stops early if a step doesn't move
+        (the device clamped at its -10/10 limit)."""
+        target_db = max(-10, min(10, target_db))
+        while self._state.bass_db != target_db:
+            before = self._state.bass_db
+            if before is not None and target_db > before:
+                await self.bass_up()
+            else:
+                await self.bass_down()
+            if self._state.bass_db == before:
+                break
+
+    async def treble_up(self) -> None:
+        data = await self._send("1,06", idempotent=False)
+        self._state.treble_db = int((data or "").strip())
+        self._notify(self._state)
+
+    async def treble_down(self) -> None:
+        data = await self._send("1,07", idempotent=False)
+        self._state.treble_db = int((data or "").strip())
+        self._notify(self._state)
+
+    async def set_treble(self, target_db: int) -> None:
+        """Same step-walking emulation as `set_bass`."""
+        target_db = max(-10, min(10, target_db))
+        while self._state.treble_db != target_db:
+            before = self._state.treble_db
+            if before is not None and target_db > before:
+                await self.treble_up()
+            else:
+                await self.treble_down()
+            if self._state.treble_db == before:
+                break
+
+    async def sub_on(self) -> None:
+        await self._send("1,08")
+        self._state.sub_on = True
+        self._notify(self._state)
+
+    async def sub_off(self) -> None:
+        await self._send("1,09")
+        self._state.sub_on = False
+        self._notify(self._state)
+
+    async def set_lfe_trim(self, trim_db: int) -> None:
+        """`trim_db` is -10..0; the protocol encodes it as a 0..10 magnitude."""
+        magnitude = abs(max(-10, min(0, trim_db)))
+        data = await self._send(f"1,10,{magnitude:02d}")
+        self._state.lfe_trim_db = -int((data or "0").strip())
+        self._notify(self._state)
+
+    async def set_dynamic_range(self, level: int) -> None:
+        """`level` is 0..4 (quarters: 0=off/full range, 4=full compression)."""
+        level = max(0, min(4, level))
+        data = await self._send(f"1,12,{level:02d}")
+        self._state.dynamic_range = int((data or "0").strip())
+        self._notify(self._state)
+
+    async def osd_on(self) -> None:
+        await self._send("1,13")
+
+    async def osd_off(self) -> None:
+        await self._send("1,14")
+
+    async def osd_up(self) -> None:
+        await self._send("1,15", idempotent=False)
+
+    async def osd_down(self) -> None:
+        await self._send("1,16", idempotent=False)
+
+    async def osd_left(self) -> None:
+        await self._send("1,17", idempotent=False)
+
+    async def osd_right(self) -> None:
+        await self._send("1,18", idempotent=False)
+
+    async def osd_enter(self) -> None:
+        await self._send("1,19", idempotent=False)
+
+    # -- Group 2: remaining Source commands ----------------------------------
+
+    async def input_select_up(self) -> None:
+        """No reply data -- unlike `select_source`, this cannot update
+        `state.source`, which is left stale after this call."""
+        await self._send("2,02", idempotent=False)
+
+    async def input_select_down(self) -> None:
+        await self._send("2,03", idempotent=False)
+
+    async def set_input_mode(self, *, digital: bool) -> None:
+        data = await self._send(f"2,04,{'01' if digital else '00'}")
+        self._state.input_mode_digital = (data or "").strip().endswith("1")
+        self._notify(self._state)
+
+    async def set_video_source_type(self, kind: VideoSourceType) -> None:
+        data = await self._send(f"2,05,{VIDEO_SOURCE_TYPE_TO_CODE[kind]:02d}")
+        self._state.video_source_type = _code_lookup(VIDEO_SOURCE_TYPE_CODE, data)
+        self._notify(self._state)
+
+    # -- Group 4: remaining Audio Processing commands ------------------------
+
+    async def set_stereo_plus_sw(self, *, enabled: bool) -> None:
+        data = await self._send(f"4,01,{'01' if enabled else '00'}")
+        self._state.stereo_plus_sw = (data or "").strip().endswith("1")
+        self._notify(self._state)
+
+    async def cycle_surround_mode(self) -> None:
+        data = await self._send("4,02", idempotent=False)
+        self._state.surround_mode = _clean_mode(data)
+        self._notify(self._state)
+
+    async def cycle_dd_dts_mode(self) -> None:
+        data = await self._send("4,03", idempotent=False)
+        self._state.dd_dts_mode = _clean_mode(data)
+        self._notify(self._state)
+
+    # -- Group 3: Tuner commands ---------------------------------------------
+
+    async def set_tuner_mono(self, *, mono: bool) -> None:
+        data = await self._send(f"3,01,{'01' if mono else '00'}")
+        self._state.tuner_mono = (data or "").strip().endswith("1")
+        self._notify(self._state)
+
+    async def tuner_frequency_up(self) -> None:
+        await self._send("3,02", idempotent=False)
+
+    async def tuner_frequency_down(self) -> None:
+        await self._send("3,03", idempotent=False)
+
+    async def tuner_up(self) -> None:
+        """Behavior depends on the current `tuner_mode` (frequency step,
+        search, or preset step)."""
+        await self._send("3,04", idempotent=False)
+
+    async def tuner_down(self) -> None:
+        await self._send("3,05", idempotent=False)
+
+    async def set_tuner_mode(self, mode: TunerMode) -> None:
+        data = await self._send(f"3,06,{TUNER_MODE_TO_CODE[mode]:02d}")
+        self._state.tuner_mode = _code_lookup(TUNER_MODE_CODE, data)
+        self._notify(self._state)
+
+    async def tuner_search_stop(self) -> str | None:
+        """Reply carries the frequency the search stopped on."""
+        data = await self._send("3,07")
+        frequency = _format_frequency(data) if data else None
+        self._state.tuner_frequency = frequency
+        self._notify(self._state)
+        return frequency
+
+    async def tuner_auto_search(self) -> None:
+        await self._send("3,08", idempotent=False)
+
+    async def set_tuner_band(self, band: TunerBand) -> None:
+        data = await self._send(f"3,09,{TUNER_BAND_TO_CODE[band]:02d}")
+        self._state.tuner_band = _code_lookup(TUNER_BAND_CODE, data)
+        self._notify(self._state)
+
+    async def set_tuner_pty_select(self, pty: ProgramType) -> None:
+        data = await self._send(f"3,10,{PROGRAM_TYPE_TO_CODE[pty]:02d}")
+        self._state.tuner_pty_select = _code_lookup(PROGRAM_TYPE_CODE, data)
+        self._notify(self._state)
+
+    async def store_tuner_preset(self, preset: int) -> None:
+        """Store the current frequency into preset slot `preset` (1-15)."""
+        await self._send(f"3,11,{preset:02d}")
+
+    async def select_tuner_preset(self, preset: int) -> None:
+        """Tune to preset slot `preset` (1-15). Named "Get Preset" in the
+        protocol doc, but it's an action ("tune to"), not a query."""
+        await self._send(f"3,12,{preset:02d}")
+
+    async def set_tuner_display_mode(self, mode: TunerDisplayMode) -> None:
+        data = await self._send(f"3,13,{TUNER_DISPLAY_MODE_TO_CODE[mode]:02d}")
+        self._state.tuner_display_mode = _code_lookup(TUNER_DISPLAY_MODE_CODE, data)
+        self._notify(self._state)
+
+    async def get_tuner_frequency(self) -> str | None:
+        data = await self._send("3,14")
+        frequency = _format_frequency(data) if data else None
+        self._state.tuner_frequency = frequency
+        self._notify(self._state)
+        return frequency
+
+    async def get_tuner_station_name(self) -> str | None:
+        raw = await self._send("3,15")
+        data = (raw or "").strip()
+        name = None if not data or set(data) == {"*"} else data
+        self._state.tuner_station_name = name
+        self._notify(self._state)
+        return name
+
+    async def get_tuner_pty(self) -> ProgramType | None:
+        data = await self._send("3,16")
+        pty = _code_lookup(PROGRAM_TYPE_CODE, data)  # 0 -> None (no PTY)
+        self._state.tuner_pty_current = pty
+        self._notify(self._state)
+        return pty
+
+    async def tuner_stop_pty_select(self) -> None:
+        await self._send("3,17")
+
+    async def refresh_tuner_info(self) -> None:
+        """Best-effort refresh of the three read-only tuner queries (there's
+        no push for them, so something has to actively re-query after a
+        band/frequency/preset change). Each query is independent -- one
+        failing (e.g. a query sent mid-search) must not stop the others."""
+        for query in (self.get_tuner_frequency, self.get_tuner_station_name, self.get_tuner_pty):
+            try:
+                await query()
+            except Exception:  # noqa: BLE001
+                _LOGGER.debug("Tuner info refresh: %s failed", query.__name__, exc_info=True)

@@ -38,6 +38,142 @@
           }
         }
       }
+    },
+    "number": {
+      "bass": { "name": "Bass" },
+      "treble": { "name": "Treble" },
+      "lfe_trim": { "name": "LFE trim" }
+    },
+    "select": {
+      "dynamic_range": {
+        "name": "Dynamic range",
+        "state": {
+          "off": "Off",
+          "quarter": "1/4",
+          "half": "2/4",
+          "three_quarters": "3/4",
+          "full": "Full"
+        }
+      },
+      "input_mode": {
+        "name": "Input mode",
+        "state": {
+          "analogue": "Analogue",
+          "digital": "Digital"
+        }
+      },
+      "video_source_type": {
+        "name": "Video source type",
+        "state": {
+          "s_video": "S-Video",
+          "component": "Component",
+          "composite": "Composite"
+        }
+      },
+      "tuner_band": {
+        "name": "Tuner band",
+        "state": {
+          "fm": "FM",
+          "am": "AM"
+        }
+      },
+      "tuner_mode": {
+        "name": "Tuner mode",
+        "state": {
+          "frequency": "Frequency",
+          "search": "Search",
+          "preset": "Preset"
+        }
+      },
+      "tuner_display_mode": {
+        "name": "Tuner display mode",
+        "state": {
+          "frequency": "Frequency",
+          "program_name": "Program name",
+          "program_type": "Program type",
+          "clock_time": "Clock time",
+          "radiotext": "Radiotext"
+        }
+      },
+      "tuner_pty_select": {
+        "name": "Tuner PTY search",
+        "state": {
+          "news": "News",
+          "affairs": "Affairs",
+          "info": "Info",
+          "sport": "Sport",
+          "educate": "Educate",
+          "drama": "Drama",
+          "culture": "Culture",
+          "science": "Science",
+          "varied": "Varied",
+          "pop": "Pop",
+          "rock": "Rock",
+          "mor": "MOR",
+          "light": "Light",
+          "classics": "Classics",
+          "other": "Other"
+        }
+      },
+      "tuner_preset": { "name": "Tuner preset" }
+    },
+    "switch": {
+      "subwoofer": { "name": "Subwoofer" },
+      "stereo_plus_sw": { "name": "Stereo + subwoofer" },
+      "tuner_mono": { "name": "Tuner mono" }
+    },
+    "button": {
+      "cycle_surround_mode": { "name": "Cycle surround mode" },
+      "cycle_dd_dts_mode": { "name": "Cycle DD/DTS mode" },
+      "input_select_up": { "name": "Input select up" },
+      "input_select_down": { "name": "Input select down" },
+      "tuner_frequency_up": { "name": "Tuner frequency up" },
+      "tuner_frequency_down": { "name": "Tuner frequency down" },
+      "tuner_up": { "name": "Tuner up" },
+      "tuner_down": { "name": "Tuner down" },
+      "tuner_search_stop": { "name": "Tuner search stop" },
+      "tuner_auto_search": { "name": "Tuner auto search" },
+      "tuner_stop_pty_select": { "name": "Tuner stop PTY select" }
+    },
+    "remote": {
+      "osd": { "name": "OSD" }
+    },
+    "sensor": {
+      "tuner_frequency": { "name": "Tuner frequency" },
+      "tuner_station_name": { "name": "Tuner station name" },
+      "tuner_pty_current": {
+        "name": "Tuner current PTY",
+        "state": {
+          "news": "News",
+          "affairs": "Affairs",
+          "info": "Info",
+          "sport": "Sport",
+          "educate": "Educate",
+          "drama": "Drama",
+          "culture": "Culture",
+          "science": "Science",
+          "varied": "Varied",
+          "pop": "Pop",
+          "rock": "Rock",
+          "mor": "MOR",
+          "light": "Light",
+          "classics": "Classics",
+          "other": "Other"
+        }
+      },
+      "protocol_version": { "name": "Protocol version" }
+    }
+  },
+  "services": {
+    "store_preset": {
+      "name": "Store tuner preset",
+      "description": "Stores the current tuner frequency into a preset slot.",
+      "fields": {
+        "preset": {
+          "name": "Preset",
+          "description": "Preset slot number (1-15)."
+        }
+      }
     }
   },
   "exceptions": {
@@ -49,6 +185,9 @@
     },
     "invalid_source": {
       "message": "{source} is not a valid input source"
+    },
+    "invalid_osd_command": {
+      "message": "{command} is not a valid OSD command"
     }
   }
 }
