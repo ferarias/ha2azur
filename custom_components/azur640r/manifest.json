@@ -5,6 +5,7 @@
     "@ferarias"
   ],
   "config_flow": true,
+  "connectivity": ["serial"],
   "documentation": "https://github.com/ferarias/ha2azur",
   "integration_type": "device",
   "iot_class": "assumed_state",
