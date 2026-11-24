@@ -52,11 +52,12 @@ FIXED_DATA_PATTERNS: dict[str, re.Pattern[str]] = {
     "1,11": re.compile(r"0?[01]"),        # mute: 0/00=off, 1/01=on
     "1,02": re.compile(r"-?\d{1,2}"),     # volume up -> resulting dB
     "1,03": re.compile(r"-?\d{1,2}"),     # volume down -> resulting dB
-    "1,04": re.compile(r"-?\d{1,2}"),     # bass up -> resulting dB
-    "1,05": re.compile(r"-?\d{1,2}"),     # bass down -> resulting dB
-    "1,06": re.compile(r"-?\d{1,2}"),     # treble up -> resulting dB
-    "1,07": re.compile(r"-?\d{1,2}"),     # treble down -> resulting dB
+    "1,04": re.compile(r"[+-]?\d{1,2}"),  # bass up -> resulting dB (verified: positive values use a literal '+')
+    "1,05": re.compile(r"[+-]?\d{1,2}"),  # bass down -> resulting dB
+    "1,06": re.compile(r"[+-]?\d{1,2}"),  # treble up -> resulting dB
+    "1,07": re.compile(r"[+-]?\d{1,2}"),  # treble down -> resulting dB
     "1,10": re.compile(r"\d{1,2}"),       # LFE trim: 0..10 (magnitude of -dB)
+    "2,01": re.compile(r"\d{1,2}"),       # input select: reply-coded 1..10 (verified zero-padded)
     "1,12": re.compile(r"0?[0-4]"),        # dynamic range: 0..4
     "2,04": re.compile(r"0?[01]"),        # input mode: 0=analogue, 1=digital
     "2,05": re.compile(r"0?[0-2]"),        # video source: 0=S-Video,1=Component,2=Composite
@@ -132,17 +133,19 @@ SOURCE_COMMAND_CODE: dict[str, InputSource] = {
 # Group 7, reply to command 01: reply-code -> InputSource. Deliberately a
 # SEPARATE table -- Tuner moves from command-code 00 to reply-code 9, and
 # every other source shifts by one. Do not try to derive one from the other.
-SOURCE_REPLY_CODE: dict[str, InputSource] = {
-    "1": InputSource.DVD,
-    "2": InputSource.VIDEO1,
-    "3": InputSource.VIDEO2,
-    "4": InputSource.VIDEO3,
-    "5": InputSource.REC1,
-    "6": InputSource.AUX,
-    "7": InputSource.CD,
-    "8": InputSource.REC2,
-    "9": InputSource.TUNER,
-    "10": InputSource.DIRECT_7_1,
+# Int-keyed (not str) -- verified against real hardware that this reply is
+# zero-padded ("01", "06", ...), which a str-keyed table would never match.
+SOURCE_REPLY_CODE: dict[int, InputSource] = {
+    1: InputSource.DVD,
+    2: InputSource.VIDEO1,
+    3: InputSource.VIDEO2,
+    4: InputSource.VIDEO3,
+    5: InputSource.REC1,
+    6: InputSource.AUX,
+    7: InputSource.CD,
+    8: InputSource.REC2,
+    9: InputSource.TUNER,
+    10: InputSource.DIRECT_7_1,
 }
 
 SOURCE_TO_COMMAND_CODE: dict[InputSource, str] = {
@@ -297,6 +300,7 @@ class AzurState:
     tuner_band: TunerBand | None = None
     tuner_mode: TunerMode | None = None
     tuner_pty_select: ProgramType | None = None
+    tuner_preset: int | None = None  # optimistic: no "current preset" query exists
     tuner_display_mode: TunerDisplayMode | None = None
     tuner_frequency: str | None = None  # "xxx.xx" MHz/kHz, as echoed by the device
     tuner_station_name: str | None = None
@@ -310,21 +314,35 @@ def _clean_mode(data: str | None) -> str | None:
     return text
 
 
+def _strip_ws(text: str | None) -> str:
+    """Remove ALL whitespace, not just leading/trailing. Verified against
+    real hardware that numeric replies use a fixed-width, sign-padded field
+    where the padding space can be INSIDE the value -- a single-digit
+    negative like -2 is sent as "- 2" (sign, then a padding space, then the
+    digit), not "-2". Never apply this to a free-text field (station name)."""
+    return "".join((text or "").split())
+
+
 def _code_lookup(table: dict[int, Any], raw: str | None) -> Any | None:
     """Look up a reply's numeric code in an int-keyed table. Handles the
     protocol's inconsistent zero-padding (e.g. "2" and "02" both mean 2)."""
-    text = (raw or "").strip()
+    text = _strip_ws(raw)
     if not text.isdigit():
         return None
     return table.get(int(text))
 
 
-def _format_frequency(raw: str | None) -> str | None:
-    """The device echoes frequency as plain digits with an implied 2-digit
-    decimal part (e.g. "09525" -> "95.25" MHz) -- never a literal '.'."""
+def _format_frequency(raw: str | None, band: TunerBand | None) -> str | None:
+    """FM echoes frequency as plain digits with an implied 2-digit decimal
+    part (e.g. "09525" -> "95.25" MHz). Verified against real hardware that
+    AM does NOT share this convention -- it's a plain whole-number kHz value
+    (e.g. "00522" -> "522" kHz), so this must know which band it's for.
+    `band=None` (not yet known) falls back to the FM/doc-documented format."""
     digits = (raw or "").strip()
     if not digits.isdigit():
         return digits or None
+    if band is TunerBand.AM:
+        return digits.lstrip("0") or "0"
     whole, frac = digits[:-2].lstrip("0") or "0", digits[-2:].rjust(2, "0")
     return f"{whole}.{frac}"
 
@@ -470,7 +488,7 @@ class AzurClient:
         # 05 as the protocol doc implies -- a real firmware quirk, not line noise
         # (it was reproducible across all retry attempts). Group + data-shape
         # validation below is enough to reject stale/corrupted replies.
-        if data_pattern is not None and not data_pattern.fullmatch((data or "").strip()):
+        if data_pattern is not None and not data_pattern.fullmatch(_strip_ws(data)):
             raise AzurProtocolError(f"unexpected reply data: {reply!r}")
 
     async def async_send_command(
@@ -559,12 +577,12 @@ class AzurClient:
 
     async def volume_up(self) -> None:
         data = await self._send("1,02", idempotent=False)
-        self._state.volume_db = int((data or "").strip())
+        self._state.volume_db = int(_strip_ws(data))
         self._notify(self._state)
 
     async def volume_down(self) -> None:
         data = await self._send("1,03", idempotent=False)
-        self._state.volume_db = int((data or "").strip())
+        self._state.volume_db = int(_strip_ws(data))
         self._notify(self._state)
 
     async def mute_on(self) -> None:
@@ -580,7 +598,7 @@ class AzurClient:
     async def select_source(self, source: InputSource) -> None:
         command_code = SOURCE_TO_COMMAND_CODE[source]
         data = await self._send(f"2,01,{command_code}")
-        reply_source = SOURCE_REPLY_CODE.get((data or "").strip())
+        reply_source = _code_lookup(SOURCE_REPLY_CODE, data)
         self._state.source = reply_source if reply_source is not None else source
         self._notify(self._state)
 
@@ -616,50 +634,90 @@ class AzurClient:
 
     async def bass_up(self) -> None:
         data = await self._send("1,04", idempotent=False)
-        self._state.bass_db = int((data or "").strip())
+        self._state.bass_db = int(_strip_ws(data))
         self._notify(self._state)
 
     async def bass_down(self) -> None:
         data = await self._send("1,05", idempotent=False)
-        self._state.bass_db = int((data or "").strip())
+        self._state.bass_db = int(_strip_ws(data))
         self._notify(self._state)
 
     async def set_bass(self, target_db: int) -> None:
         """Emulate an absolute set: the protocol only has step up/down, but
         each step reply echoes the resulting dB, so this walks toward the
         target one step at a time and stops early if a step doesn't move
-        (the device clamped at its -10/10 limit)."""
+        (the device clamped at its -10/10 limit).
+
+        Verified against real hardware: each step is 2dB, not the 1dB the
+        protocol doc's "-10 to 10" wording suggests, giving 11 real
+        positions (-10, -8, ..., 8, 10). An odd `target_db` is rounded to
+        the nearest reachable even value. The loop is also hard-capped
+        (not just relying on the clamp-detection break) since an unrounded
+        unreachable target would otherwise oscillate forever between its
+        two nearest neighbors.
+
+        Each step command is non-idempotent (correctly -- a blind retry
+        inside `bass_up`/`bass_down` itself could double-step), but a
+        single step failing from line noise (verified against real
+        hardware: a corrupted reply byte, not a real rejection) must not
+        abort the whole walk -- the next loop iteration just re-reads
+        state and re-decides direction, so it's safe to swallow one bad
+        step and keep walking toward the target."""
         target_db = max(-10, min(10, target_db))
-        while self._state.bass_db != target_db:
+        target_db -= target_db % 2  # round down to the nearest even step
+        last_error: AzurProtocolError | None = None
+        for _ in range(12):  # -10..10 in steps of 2 is at most 10 transitions
+            if self._state.bass_db == target_db:
+                return
             before = self._state.bass_db
-            if before is not None and target_db > before:
-                await self.bass_up()
+            if before is None:
+                going_up = target_db >= 0
             else:
-                await self.bass_down()
+                going_up = target_db > before
+            try:
+                await (self.bass_up() if going_up else self.bass_down())
+            except AzurProtocolError as exc:
+                last_error = exc
+                continue
             if self._state.bass_db == before:
-                break
+                return
+        if self._state.bass_db != target_db and last_error is not None:
+            raise last_error
 
     async def treble_up(self) -> None:
         data = await self._send("1,06", idempotent=False)
-        self._state.treble_db = int((data or "").strip())
+        self._state.treble_db = int(_strip_ws(data))
         self._notify(self._state)
 
     async def treble_down(self) -> None:
         data = await self._send("1,07", idempotent=False)
-        self._state.treble_db = int((data or "").strip())
+        self._state.treble_db = int(_strip_ws(data))
         self._notify(self._state)
 
     async def set_treble(self, target_db: int) -> None:
-        """Same step-walking emulation as `set_bass`."""
+        """Same step-walking emulation as `set_bass` -- same 2dB-per-step,
+        11-position hardware reality, same rounding, iteration cap, and
+        one-bad-step tolerance."""
         target_db = max(-10, min(10, target_db))
-        while self._state.treble_db != target_db:
+        target_db -= target_db % 2
+        last_error: AzurProtocolError | None = None
+        for _ in range(12):
+            if self._state.treble_db == target_db:
+                return
             before = self._state.treble_db
-            if before is not None and target_db > before:
-                await self.treble_up()
+            if before is None:
+                going_up = target_db >= 0
             else:
-                await self.treble_down()
+                going_up = target_db > before
+            try:
+                await (self.treble_up() if going_up else self.treble_down())
+            except AzurProtocolError as exc:
+                last_error = exc
+                continue
             if self._state.treble_db == before:
-                break
+                return
+        if self._state.treble_db != target_db and last_error is not None:
+            raise last_error
 
     async def sub_on(self) -> None:
         await self._send("1,08")
@@ -675,14 +733,14 @@ class AzurClient:
         """`trim_db` is -10..0; the protocol encodes it as a 0..10 magnitude."""
         magnitude = abs(max(-10, min(0, trim_db)))
         data = await self._send(f"1,10,{magnitude:02d}")
-        self._state.lfe_trim_db = -int((data or "0").strip())
+        self._state.lfe_trim_db = -int(_strip_ws(data) or "0")
         self._notify(self._state)
 
     async def set_dynamic_range(self, level: int) -> None:
         """`level` is 0..4 (quarters: 0=off/full range, 4=full compression)."""
         level = max(0, min(4, level))
         data = await self._send(f"1,12,{level:02d}")
-        self._state.dynamic_range = int((data or "0").strip())
+        self._state.dynamic_range = int(_strip_ws(data) or "0")
         self._notify(self._state)
 
     async def osd_on(self) -> None:
@@ -772,7 +830,7 @@ class AzurClient:
     async def tuner_search_stop(self) -> str | None:
         """Reply carries the frequency the search stopped on."""
         data = await self._send("3,07")
-        frequency = _format_frequency(data) if data else None
+        frequency = _format_frequency(data, self._state.tuner_band) if data else None
         self._state.tuner_frequency = frequency
         self._notify(self._state)
         return frequency
@@ -786,8 +844,14 @@ class AzurClient:
         self._notify(self._state)
 
     async def set_tuner_pty_select(self, pty: ProgramType) -> None:
-        data = await self._send(f"3,10,{PROGRAM_TYPE_TO_CODE[pty]:02d}")
-        self._state.tuner_pty_select = _code_lookup(PROGRAM_TYPE_CODE, data)
+        """Verified against real hardware: the reply isn't an echo of `pty`
+        -- it's a search *status* (1-15 = a matching station was already
+        found, 16 = still searching, 17 = search failed), since selecting a
+        PTY starts an asynchronous band search. So this tracks `pty` itself
+        optimistically rather than trying to parse that status as a
+        ProgramType."""
+        await self._send(f"3,10,{PROGRAM_TYPE_TO_CODE[pty]:02d}")
+        self._state.tuner_pty_select = pty
         self._notify(self._state)
 
     async def store_tuner_preset(self, preset: int) -> None:
@@ -796,8 +860,11 @@ class AzurClient:
 
     async def select_tuner_preset(self, preset: int) -> None:
         """Tune to preset slot `preset` (1-15). Named "Get Preset" in the
-        protocol doc, but it's an action ("tune to"), not a query."""
+        protocol doc, but it's an action ("tune to"), not a query. Tracked
+        optimistically -- there's no "current preset" query to confirm it."""
         await self._send(f"3,12,{preset:02d}")
+        self._state.tuner_preset = preset
+        self._notify(self._state)
 
     async def set_tuner_display_mode(self, mode: TunerDisplayMode) -> None:
         data = await self._send(f"3,13,{TUNER_DISPLAY_MODE_TO_CODE[mode]:02d}")
@@ -806,7 +873,7 @@ class AzurClient:
 
     async def get_tuner_frequency(self) -> str | None:
         data = await self._send("3,14")
-        frequency = _format_frequency(data) if data else None
+        frequency = _format_frequency(data, self._state.tuner_band) if data else None
         self._state.tuner_frequency = frequency
         self._notify(self._state)
         return frequency

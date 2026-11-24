@@ -138,7 +138,9 @@ async def async_setup_entry(
                 config_entry,
                 translation_key="tuner_preset",
                 options=TUNER_PRESET_OPTIONS,
-                get_option=lambda state: None,  # noqa: ARG005 -- no "current preset" query exists
+                get_option=lambda state: (
+                    str(state.tuner_preset) if state.tuner_preset is not None else None
+                ),
                 set_option=lambda option: client.select_tuner_preset(int(option)),
                 refresh_tuner_info=True,
             ),

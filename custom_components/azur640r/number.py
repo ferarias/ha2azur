@@ -30,6 +30,9 @@ async def async_setup_entry(
                 translation_key="bass",
                 native_min_value=-10,
                 native_max_value=10,
+                native_step=2,  # verified against real hardware: 2dB per
+                # step (11 positions, -10..10), not 1dB despite the doc's
+                # "-10 to 10" range wording -- see `AzurClient.set_bass`.
                 get_value=lambda state: state.bass_db,
                 set_value=client.set_bass,
             ),
@@ -39,6 +42,7 @@ async def async_setup_entry(
                 translation_key="treble",
                 native_min_value=-10,
                 native_max_value=10,
+                native_step=2,  # see the `bass` entity above
                 get_value=lambda state: state.treble_db,
                 set_value=client.set_treble,
             ),
@@ -61,7 +65,6 @@ class Azur640RNumber(NumberEntity):
     _attr_has_entity_name = True
     _attr_should_poll = False
     _attr_assumed_state = True
-    _attr_native_step = 1
     _attr_mode = NumberMode.SLIDER
     _attr_native_unit_of_measurement = "dB"
 
@@ -75,6 +78,7 @@ class Azur640RNumber(NumberEntity):
         native_max_value: float,
         get_value: Callable[[AzurState], int | None],
         set_value: Callable[[int], Awaitable[None]],
+        native_step: float = 1,
     ) -> None:
         self._client = client
         self._get_value = get_value
@@ -82,6 +86,7 @@ class Azur640RNumber(NumberEntity):
         self._attr_translation_key = translation_key
         self._attr_native_min_value = native_min_value
         self._attr_native_max_value = native_max_value
+        self._attr_native_step = native_step
         self._attr_unique_id = f"{config_entry.entry_id}_{translation_key}"
         self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, config_entry.entry_id)})
         self._async_update_from_state(client.state)
