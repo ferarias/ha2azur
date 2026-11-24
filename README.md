@@ -75,3 +75,9 @@ If you have access to config files (eg., via Studio Code Server, SMB, terminal o
 
 That value is the ESPHome encryption key. **DO NOT** share this value.
 
+## Contributing / releases
+
+Work happens on feature branches merged into `main` via pull request — `main` is protected and always reflects the latest released state. CI (`.github/workflows/validate.yml`) runs [hassfest](https://github.com/home-assistant/actions) and the [HACS validation action](https://github.com/hacs/action) on every PR and push to `main`.
+
+Commit messages (or at least PR titles, if you squash-merge) must follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, `docs:`, …) — [release-please](https://github.com/googleapis/release-please) uses them to decide the next version. Once commits land on `main`, release-please opens/updates a "release PR" bumping `custom_components/azur640r/manifest.json`'s `version`; merging *that* PR tags and publishes a GitHub Release, which is what HACS then shows as the integration's version (instead of a raw commit hash).
+
